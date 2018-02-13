@@ -1,80 +1,100 @@
 import React, {Component} from "react";
+import { Form,Spin, Icon, Input, Button, Checkbox } from 'antd';
+import ForgetPassword from "../ForgetPassword/ForgerPassword";
+import {connect} from "react-redux";
+import {withRouter,Link} from "react-router-dom";
 import Styles from "./Login.module.css";
-import {connect} from "react-redux"; 
-import firebaseApp from "../../js/firebase";
 import * as actionCreators from "../../store/actions/index";
-import * as firebase from 'firebase';
-import {withRouter} from "react-router-dom";
+// import {getUserToken} from "../../js/localStorage";
+const FormItem = Form.Item;
 
-const longinStyle=[Styles.loginBtn,Styles.loginBtnfacebook];
+class Login extends Component {
+  state={
+    visible:false
+  };
 
-class Login extends Component{
-
-    state={
-        user:{}
-    };
-
-    loginClickedHandler=()=>{
-        var provider = new firebase.auth.FacebookAuthProvider();
-        firebaseApp.auth().signInWithPopup(provider).then((result)=> {
-            // This gives you a Facebook Access Token. You can use it to access the Facebook API.
-            let authToken = result.credential.accessToken;
-            console.log(authToken);
-
-            let authUser = {
-                name:result.user.displayName,
-                email:result.user.email,
-                token:authToken
-            };
-
-            this.props.onJoin(authUser);
-
-            this.setState({
-                user:authUser
-            });
-            console.log(result.user.displayName);
-            console.log(result.user.email);
-            // ...
-            this.props.history.push('/chat');
-          }).catch((error) => {
-            // Handle Errors here.
-            var errorCode = error.code;
-            console.log(errorCode);
-            var errorMessage = error.message;
-            console.log(errorMessage);
-            // The email of the user's account used.
-            var email = error.email;
-            console.log(email);
-            // The firebase.auth.AuthCredential type that was used.
-            var credential = error.credential;
-            console.log(credential);
-            // ...
-          });
-        console.log(firebaseApp.name);
-        console.log(firebaseApp.database());
+  componentWillReceiveProps(nextProps){
+    if(nextProps.loginChat === true){
+        this.props.history.push('/chat');
     }
-    
-    render(){
-        console.log('state',this.state.user);
-        return(
-            <center>
-                <button className={longinStyle.join(' ')} onClick={this.loginClickedHandler}>
-                    Login with Facebook
-                </button>
-            </center>
-        );
-    }
+}
+
+  
+  showModal = () => {
+    console.log('clicked');
+    this.setState({ visible: true });
+    console.log(this.state.visible);
+  }
+
+  loginClickedHandler = (e) => {
+    e.preventDefault();
+    this.props.form.validateFields((err, values) => {
+      if (!err) {
+        console.log('Received values of form: ', values);
+        delete values['remember'];
+        this.props.onLogin(values);
+        // this.props.history.push('/chat');
+       
+      }
+    });
+  }
+  render() {
+    const { getFieldDecorator } = this.props.form;
+    return (
+      <div>
+         <Spin spinning={this.props.loading}>
+        <Form onSubmit={this.loginClickedHandler} className={Styles.loginForm}>
+        <FormItem>
+                    {getFieldDecorator('email', {
+                        rules: [{
+                        type: 'email', message: 'The input is not valid E-mail!',
+                        }, {
+                        required: true, message: 'Please input your E-mail!',
+                        }],
+                    })(
+                        <Input prefix={<Icon type="user" style={{ color: 'rgba(0,0,0,.25)' }} />} placeholder="E-mail" />
+                    )}
+                </FormItem>
+        <FormItem>
+          {getFieldDecorator('password', {
+            rules: [{ required: true, message: 'Please input your Password!' }],
+          })(
+            <Input prefix={<Icon type="lock" style={{ color: 'rgba(0,0,0,.25)' }} />} type="password" placeholder="Password" />
+          )}
+        </FormItem>
+        <FormItem>
+          {getFieldDecorator('remember', {
+            valuePropName: 'checked',
+            initialValue: true,
+          })(
+            <Checkbox>Remember me</Checkbox>
+          )}
+          <span className={Styles.loginFormForgot} onClick={this.showModal}>Forgot password</span>
+          <Button type="primary" htmlType="submit" className={Styles.loginFormButton} loading={this.props.loading}>
+            Log in
+          </Button>
+          Or <Link to='/register'>register now!</Link>
+        </FormItem>
+      </Form>
+      </Spin>
+      <ForgetPassword visible={this.state.visible}/>
+      </div>
+    );
+  }
 }
 
 const mapStateToProps = state =>{
-    return{
-        loading:state.Join.loading
-    }
+  console.log(state);
+  return{
+      loading:state.Login.loading,
+      loginChat:state.Login.goToChatFromLogIn,
+  }
 };
 const mapDispatchToProps = dispatch =>{
-    return{
-        onJoin:(userName) => dispatch(actionCreators.onJoin(userName))
-    };
+  return{
+      onLogin:(userCredentials) => dispatch(actionCreators.onLogin(userCredentials))
+  };
 }
 
-export default connect(mapStateToProps,mapDispatchToProps)(withRouter(Login));
+
+export default connect(mapStateToProps,mapDispatchToProps)(withRouter(Form.create()(Login)));

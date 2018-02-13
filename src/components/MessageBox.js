@@ -67,7 +67,7 @@ class MessageBox  extends Component{
 
 const mapStateToProps = state=>{
     return{
-        ownerId:state.Join.ownerId
+        ownerId:state.Register.ownerId
     }
 };
 export default connect(mapStateToProps)(MessageBox);

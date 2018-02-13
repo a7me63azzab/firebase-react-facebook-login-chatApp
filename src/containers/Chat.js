@@ -3,11 +3,15 @@ import { Layout, Button, notification } from 'antd';
 import Message from "../components/Message/Message";
 import UserList from "../components/UserList";
 import MessageBox from "../components/MessageBox";
-
+import topbar from "topbar";
+import axios from "../axios_base";
 import {connect} from "react-redux";
 import firebaseApp from "../js/firebase";
 import uuidv4 from "uuid/v4";
+import {withRouter} from "react-router-dom";
+import * as actionCreators from "../store/actions/index";
 import _ from "lodash";
+import {getUserData} from "../js/localStorage";
 import messageModel from "../js/models/message";
 import userModel from "../js/models/user";
 import notificationModel from "../js/models/notification";
@@ -25,36 +29,126 @@ class Chat extends Component{
         notificationId:null
     };
 
-     componentWillMount(){
-
-        database.ref('/users').on('value',(snapshot)=>{
-            if(snapshot.val() !== null){
-                this.getAllUsers(snapshot.val());
-            }
-        });
-
-
-
-        //list all messages added in the current chat id
-        if(this.state.chatId !==null){
-            let app = database.ref(`${this.state.chatId}`);
-            app.on('value', snapshot => {
-                if(snapshot.val() !== null){
-                    this.getAllData(snapshot.val());
-                }
-            
+    componentWillMount(){
+        var userAuthData = getUserData();
+        console.log('before auth',userAuthData.token,userAuthData.id);
+        if(userAuthData.id === null&& userAuthData.token === null){
+            topbar.show();
+        }else{
+            topbar.hide();
+            axios.get(`/user/${userAuthData.id}`,{ headers: { 'X-auth':userAuthData.token } }).then(res=>{
+                console.log(res.data);
+                console.log('owner-id',userAuthData.id);
+                    database.ref('/users').on('value',(snapshot)=>{
+                        if(snapshot.val() !== null){
+                            this.getAllUsers(snapshot.val());
+                        }
+                    });
+    
+    
+    
+                    //list all messages added in the current chat id
+                    if(this.state.chatId !==null){
+                        let app = database.ref(`${this.state.chatId}`);
+                        app.on('value', snapshot => {
+                            if(snapshot.val() !== null){
+                                this.getAllData(snapshot.val());
+                            }
+                        
+                        });
+                    }
+    
+                    // listen to all changes in notifications model
+                    database.ref('/notifications').on('value',(snapshot)=>{
+                        if(snapshot.val() !== null){
+                            this.getAllNotifications(snapshot.val());
+                        }
+                    });
+            }).catch(err=>{
+                console.log('err [not authenticated]',err);
+                this.props.history.push('/login');
             });
         }
-
-        // listen to all changes in notifications model
-        database.ref('/notifications').on('value',(snapshot)=>{
-            if(snapshot.val() !== null){
-                this.getAllNotifications(snapshot.val());
-            }
-        });
-
-
+        
     }
+
+
+    //  componentWillMount(){
+    //     console.log('before auth',this.props.ownerId,this.props.token);
+    //     if(this.props.ownerId === null&& !this.props.token === null){
+    //         topbar.show();
+    //     }else{
+    //         topbar.hide();
+    //         axios.get(`/user/${this.props.ownerId}`,{ headers: { 'X-auth':this.props.token } }).then(res=>{
+    //             console.log(res.data);
+    //             console.log('owner-id',this.props.ownerId);
+    //                 database.ref('/users').on('value',(snapshot)=>{
+    //                     if(snapshot.val() !== null){
+    //                         this.getAllUsers(snapshot.val());
+    //                     }
+    //                 });
+    
+    
+    
+    //                 //list all messages added in the current chat id
+    //                 if(this.state.chatId !==null){
+    //                     let app = database.ref(`${this.state.chatId}`);
+    //                     app.on('value', snapshot => {
+    //                         if(snapshot.val() !== null){
+    //                             this.getAllData(snapshot.val());
+    //                         }
+                        
+    //                     });
+    //                 }
+    
+    //                 // listen to all changes in notifications model
+    //                 database.ref('/notifications').on('value',(snapshot)=>{
+    //                     if(snapshot.val() !== null){
+    //                         this.getAllNotifications(snapshot.val());
+    //                     }
+    //                 });
+    //         }).catch(err=>{
+    //             console.log('err [not authenticated]',err);
+    //             this.props.history.push('/login');
+    //         });
+    //     }
+        
+    // }
+
+//     componentWillMount(){
+        
+//         console.log('owner-id',this.props.ownerId);
+//         database.ref('/users').on('value',(snapshot)=>{
+//             if(snapshot.val() !== null){
+//                 this.getAllUsers(snapshot.val());
+//             }
+//         });
+
+
+
+//         //list all messages added in the current chat id
+//         if(this.state.chatId !==null){
+//             let app = database.ref(`${this.state.chatId}`);
+//             app.on('value', snapshot => {
+//                 if(snapshot.val() !== null){
+//                     this.getAllData(snapshot.val());
+//                 }
+            
+//             });
+//         }
+
+//         // listen to all changes in notifications model
+//         database.ref('/notifications').on('value',(snapshot)=>{
+//             if(snapshot.val() !== null){
+//                 this.getAllNotifications(snapshot.val());
+//             }
+//         });
+
+
+
+
+
+// }
 
     otherIdExits=(otherId)=>{
         // check if the user chat with this other user or not 
@@ -333,10 +427,16 @@ sendClickedHandler = ()=>{
 const mapStateToProps = state =>{
     console.log(state);
     return{
-        ownerId:state.Join.ownerId,
-        ownerName:state.Join.ownerName,
-        email:state.Join.email,
-        token:state.Join.token
+        ownerId:state.Register.ownerId,
+        ownerName:state.Register.ownerName,
+        email:state.Register.email,
+        token:state.Register.token,
+        auth:state.Auth.isAuth
     };
 };
-export default connect(mapStateToProps)(Chat);
+const mapDispatchToProps=dispatch=>{
+    return{
+        onAuth:(userId,userToken)=>dispatch(actionCreators.onAuth(userId,userToken))
+    }
+}
+export default connect(mapStateToProps,mapDispatchToProps)(withRouter(Chat));
